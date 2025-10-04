@@ -2,7 +2,7 @@ import datetime
 from pathlib import Path
 import pandas as pd
 import pytest
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock, patch, PropertyMock, MagicMock
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 from app.calculator import Calculator
@@ -54,6 +54,14 @@ def test_logging_setup(logging_info_mock):
         # Instantiate calculator to trigger logging
         calculator = Calculator(CalculatorConfig())
         logging_info_mock.assert_any_call("Calculator initialized with configuration")
+
+@patch("builtins.print")
+@patch("app.calculator.logging.basicConfig", side_effect=Exception("Logging failed"))
+def test_setup_logging_exception(mock_basic_config, mock_print):
+    with pytest.raises(Exception, match="Logging failed"):
+        Calculator(CalculatorConfig())
+
+    mock_print.assert_any_call("Error setting up logging: Logging failed")
 
 # Test Adding and Removing Observers
 
@@ -144,7 +152,100 @@ def test_load_history(mock_exists, mock_read_csv, calculator):
     except OperationError:
         pytest.fail("Loading history failed due to OperationError")
         
-            
+def test_perform_operation_generic_exception():
+    calc = Calculator(CalculatorConfig())
+    calc.operation_strategy = MagicMock()
+
+    with patch("app.calculator.InputValidator.validate_number", return_value=Decimal("2")):
+        calc.operation_strategy.execute.side_effect = ZeroDivisionError("division by zero")
+
+        with pytest.raises(OperationError, match="Operation failed: division by zero"):
+            calc.perform_operation("2", "0")
+
+@patch("app.calculator.pd.DataFrame.to_csv")
+@patch("app.calculator.logging.info")
+def test_save_history_empty_else_branch(mock_log_info, mock_to_csv):
+    calc = Calculator(CalculatorConfig())
+
+    calc.history = []
+    calc.save_history()
+    mock_to_csv.assert_called_once()
+    mock_log_info.assert_any_call("Empty history saved")
+
+@patch("app.calculator.pd.DataFrame.to_csv", side_effect=Exception("Disk write error"))
+@patch("app.calculator.logging.error")
+def test_save_history_exception_branch(mock_log_error, mock_to_csv):
+    calc = Calculator(CalculatorConfig())
+
+    fake_calc = MagicMock()
+    fake_calc.operation = "Addition"
+    fake_calc.operand1 = 1
+    fake_calc.operand2 = 2
+    fake_calc.result = 3
+    fake_calc.timestamp.isoformat.return_value = "2025-01-01T00:00:00"
+    calc.history = [fake_calc]
+
+    with pytest.raises(OperationError, match="Failed to save history: Disk write error"):
+        calc.save_history()
+
+    mock_log_error.assert_any_call("Failed to save history: Disk write error")
+
+@patch("app.calculator.Path.exists", return_value=True) 
+@patch("app.calculator.logging.info")
+@patch("app.calculator.pd.read_csv")
+def test_load_history_empty_file(mock_read_csv, mock_log_info, mock_exists):
+    calc = Calculator(CalculatorConfig())
+    mock_read_csv.return_value = pd.DataFrame()
+    calc.load_history()
+    mock_log_info.assert_any_call("Loaded empty history file")
+
+
+
+@patch("app.calculator.logging.error")
+@patch("app.calculator.pd.read_csv", side_effect=Exception("Corrupted CSV"))
+@patch("app.calculator.Path.exists", return_value=True)
+def test_load_history_exception_branch(mock_exists, mock_read_csv, mock_log_error):
+    calc = Calculator(CalculatorConfig())
+    with pytest.raises(OperationError, match="Failed to load history: Corrupted CSV"):
+        calc.load_history()
+    mock_log_error.assert_any_call("Failed to load history: Corrupted CSV")
+
+def test_get_history_dataframe_for_loop_and_return():
+    calc = Calculator(CalculatorConfig())
+
+    fake_calc_1 = MagicMock()
+    fake_calc_1.operation = "Addition"
+    fake_calc_1.operand1 = 2
+    fake_calc_1.operand2 = 3
+    fake_calc_1.result = 5
+    fake_calc_1.timestamp = "2025-01-01T00:00:00"
+
+    fake_calc_2 = MagicMock()
+    fake_calc_2.operation = "Subtraction"
+    fake_calc_2.operand1 = 10
+    fake_calc_2.operand2 = 4
+    fake_calc_2.result = 6
+    fake_calc_2.timestamp = "2025-01-01T00:10:00"
+
+    calc.history = [fake_calc_1, fake_calc_2]
+
+    df = calc.get_history_dataframe()
+
+    assert isinstance(df, pd.DataFrame)
+
+    assert df.shape == (2, 5)
+
+    assert "Addition" in df["operation"].values
+    assert "Subtraction" in df["operation"].values
+    assert 5 in df["result"].astype(int).values
+    assert 6 in df["result"].astype(int).values
+
+def test_show_history_empty():
+    calc = Calculator(CalculatorConfig())
+    calc.history = []
+    assert calc.show_history() == []
+
+
 # Test Clearing History
 
 def test_clear_history(calculator):
