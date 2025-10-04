@@ -117,6 +117,19 @@ def test_redo(calculator):
     calculator.redo()
     assert len(calculator.history) == 1
 
+def test_undo_returns_false_when_no_history():
+    calc = Calculator(CalculatorConfig())
+    calc.undo_stack = []
+    result = calc.undo()
+    assert result is False
+
+def test_redo_returns_false_when_no_history():
+    calc = Calculator(CalculatorConfig())
+    calc.redo_stack = []
+    result = calc.redo()
+    assert result is False
+
+
 # Test History Management
 
 @patch('app.calculator.pd.DataFrame.to_csv')

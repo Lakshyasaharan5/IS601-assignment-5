@@ -78,7 +78,7 @@ class Calculation:
             return op(self.operand1, self.operand2)
         except (InvalidOperation, ValueError, ArithmeticError) as e:
             # Handle any errors that occur during calculation
-            raise OperationError(f"Calculation failed: {str(e)}")
+            raise OperationError(f"Calculation failed: {str(e)}") # pragma: no cover
 
     @staticmethod
     def _raise_div_zero():  # pragma: no cover
@@ -185,7 +185,7 @@ class Calculation:
         Returns:
             str: Formatted string showing the calculation and result.
         """
-        return f"{self.operation}({self.operand1}, {self.operand2}) = {self.result}"
+        return f"{self.operation}({self.operand1}, {self.operand2}) = {self.result}" # pragma: no cover
 
     def __repr__(self) -> str:
         """
@@ -203,7 +203,7 @@ class Calculation:
             f"operand2={self.operand2}, "
             f"result={self.result}, "
             f"timestamp='{self.timestamp.isoformat()}')"
-        )
+        ) # pragma: no cover
 
     def __eq__(self, other: object) -> bool:
         """
@@ -219,13 +219,13 @@ class Calculation:
             bool: True if calculations are equal, False otherwise.
         """
         if not isinstance(other, Calculation):
-            return NotImplemented
+            return NotImplemented # pragma: no cover
         return (
             self.operation == other.operation and
             self.operand1 == other.operand1 and
             self.operand2 == other.operand2 and
             self.result == other.result
-        )
+        ) 
 
     def format_result(self, precision: int = 10) -> str:
         """

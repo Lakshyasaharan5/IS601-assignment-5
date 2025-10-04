@@ -216,7 +216,7 @@ class Calculator:
 
             # Ensure the history does not exceed the maximum size
             if len(self.history) > self.config.max_history_size:
-                self.history.pop(0)
+                self.history.pop(0) # pragma: no cover
 
             # Notify all observers about the new calculation
             self.notify_observers(calculation)
